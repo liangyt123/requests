@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/asmcos/requests"
+	"github.com/liangyt123/requests"
 	"fmt"
 )
 
