@@ -78,9 +78,6 @@ func Requests() *Request {
 	jar, _ := cookiejar.New(nil)
 
 	req.Client.Jar = jar
-	req.httpreq.GetBody = func() (io.ReadCloser, error) {
-		return ioutil.NopCloser(req.httpreq.Body), nil
-	}
 
 	return req
 }
@@ -369,7 +366,7 @@ func (req *Request) PostJson(origurl string, args ...interface{}) (resp *Respons
 	//reset Cookies,
 	//Client.Do can copy cookie from client.Jar to req.Header
 	delete(req.httpreq.Header, "Cookie")
-
+  	var bodyBytes []byte
 	for _, arg := range args {
 		switch a := arg.(type) {
 		// arg is Header , set to request header
@@ -379,17 +376,17 @@ func (req *Request) PostJson(origurl string, args ...interface{}) (resp *Respons
 				req.Header.Set(k, v)
 			}
 		case string:
-			req.setBodyRawBytes(ioutil.NopCloser(strings.NewReader(arg.(string))))
+			bodyBytes = []byte(a)
 		case Auth:
 			// a{username,password}
 			req.httpreq.SetBasicAuth(a[0], a[1])
 		default:
-			b := new(bytes.Buffer)
-			err = json.NewEncoder(b).Encode(a)
-			if err != nil {
-				return nil, err
-			}
-			req.setBodyRawBytes(ioutil.NopCloser(b))
+			 b := new(bytes.Buffer)
+		         err := json.NewEncoder(b).Encode(a)
+		         if err != nil {
+		             return nil, err
+		          }
+		          bodyBytes = b.Bytes()
 		}
 	}
 
@@ -403,6 +400,12 @@ func (req *Request) PostJson(origurl string, args ...interface{}) (resp *Respons
 	req.ClientSetCookies()
 
 	req.RequestDebug()
+	if bodyBytes != nil {
+	        req.setBodyRawBytes(ioutil.NopCloser(bytes.NewReader(bodyBytes)))
+	        req.httpreq.GetBody = func() (io.ReadCloser, error) {
+	            return ioutil.NopCloser(bytes.NewReader(bodyBytes)), nil
+	        }
+	    }
 
 	res, err := req.Client.Do(req.httpreq)
 
